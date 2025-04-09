@@ -52,11 +52,13 @@ class AgentMessagePrompt:
 		result: Optional[List['ActionResult']] = None,
 		include_attributes: list[str] = [],
 		step_info: Optional['AgentStepInfo'] = None,
+		previous_screenshots: Optional[List[str]] = None,
 	):
 		self.state = state
 		self.result = result
 		self.include_attributes = include_attributes
 		self.step_info = step_info
+		self.previous_screenshots = previous_screenshots
 
 	def get_user_message(self, use_vision: bool = True) -> HumanMessage:
 		elements_text = self.state.element_tree.clickable_elements_to_string(include_attributes=self.include_attributes)
@@ -110,15 +112,30 @@ Interactive elements from top layer of the current page inside the viewport:
 
 		if self.state.screenshot and use_vision == True:
 			# Format message for vision model
-			return HumanMessage(
-				content=[
-					{'type': 'text', 'text': state_description},
-					{
-						'type': 'image_url',
-						'image_url': {'url': f'data:image/png;base64,{self.state.screenshot}'},  # , 'detail': 'low'
-					},
-				]
-			)
+			content = []
+			
+			# Add previous screenshots first if available
+			if self.previous_screenshots:
+				content.append({
+					'type': 'text', 
+					'text': '[Recent screenshots before current state (from oldest to newest):]\n'
+				})
+				
+				for i, screenshot in enumerate(self.previous_screenshots):
+					if screenshot:
+						content.append({
+							'type': 'image_url',
+							'image_url': {'url': f'data:image/png;base64,{screenshot}'},
+						})
+			
+			# Add state description and current screenshot
+			content.append({'type': 'text', 'text': state_description + '\n[Current screenshot of the page:]'})
+			content.append({
+				'type': 'image_url',
+				'image_url': {'url': f'data:image/png;base64,{self.state.screenshot}'},  # , 'detail': 'low'
+			})
+			
+			return HumanMessage(content=content)
 
 		return HumanMessage(content=state_description)
 

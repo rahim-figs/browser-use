@@ -332,7 +332,16 @@ class Agent(Generic[Context]):
 
 			await self._raise_if_stopped_or_paused()
 
-			self._message_manager.add_state_message(state, self.state.last_result, step_info, self.settings.use_vision)
+			# Get the last 3 screenshots from history if available
+			previous_screenshots = None
+			if len(self.state.history.history) > 0:
+				# Get last 3 screenshots (excluding current one)
+				screenshots = self.state.history.screenshots()
+				if len(screenshots) > 0:
+					# Get non-None screenshots, up to 3 most recent ones
+					previous_screenshots = [s for s in screenshots if s is not None][-3:]
+
+			self._message_manager.add_state_message(state, self.state.last_result, step_info, self.settings.use_vision, previous_screenshots)
 
 			# Run planner at specified intervals if planner is configured
 			if self.settings.planner_llm and self.state.n_steps % self.settings.planner_interval == 0:
